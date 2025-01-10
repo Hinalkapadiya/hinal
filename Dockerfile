@@ -1,50 +1,20 @@
-# Stage 1: Build Stage
-FROM ubuntu:20.04 AS build
+# Use a stable base image with OpenJDK pre-installed
+FROM eclipse-temurin:17-jdk-focal
 
-# Install OpenJDK 17 and dependencies
-RUN apt-get update && apt-get install -y \
-    openjdk-17-jdk maven wget curl tar unzip && \
-    rm -rf /var/lib/apt/lists/*
-
-# Set environment variables for OpenJDK 17
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-ENV PATH=$JAVA_HOME/bin:$PATH
-
-# Verify Java version
-RUN java --version
-
-# Set working directory
+# Set the working directory
 WORKDIR /app
 
-# Copy the project files
+# Copy the application code to the container
 COPY . /app
 
-# Build the Spring Boot application using Maven
-RUN mvn clean package -DskipTests
+# Grant executable permissions to the Maven wrapper
+RUN chmod +x ./mvnw
 
-# Stage 2: Runtime Stage
-FROM ubuntu:20.04
-
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
-    wget curl tar unzip && \
-    rm -rf /var/lib/apt/lists/*
-
-# Copy OpenJDK 17 from the build stage
-COPY --from=build /usr/lib/jvm/java-17-openjdk-amd64 /usr/lib/jvm/java-17-openjdk-amd64
-
-# Set Java environment
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-ENV PATH=$JAVA_HOME/bin:$PATH
-
-# Verify Java version
-RUN java --version
-
-# Copy the built JAR file
-COPY --from=build /app/target/*.jar /app/app.jar
+# Download dependencies to cache them
+RUN ./mvnw dependency:go-offline
 
 # Expose the application port
-EXPOSE 8081
+EXPOSE 8080
 
-# Run the Spring Boot application
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+# Run the Spring Boot application using Maven
+CMD ["./mvnw", "spring-boot:run"]
